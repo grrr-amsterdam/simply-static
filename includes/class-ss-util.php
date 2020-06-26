@@ -361,6 +361,7 @@ class Util {
 	 * @return array        Array containing info on the parts of the path
 	 */
 	public static function url_path_info( $path ) {
+		$path = urldecode($path);
 		$info = array(
 			'dirname' => '',
 			'basename' => '',
