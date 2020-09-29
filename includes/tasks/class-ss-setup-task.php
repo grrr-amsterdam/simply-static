@@ -10,9 +10,13 @@ class Setup_Task extends Task {
 
 	/**
 	 * Do the initial setup for generating a static archive
+	 * @param  string $origin_url
 	 * @return boolean true this always completes in one run, so returns true
 	 */
-	public function perform() {
+	public function perform(?string $origin_url = null) {
+        if (!$origin_url) {
+            $origin_url = trailingslashit( Util::origin_url() );
+        }
 		$message = __( 'Setting up', 'simply-static' );
 		$this->save_status_message( $message );
 
@@ -42,37 +46,29 @@ class Setup_Task extends Task {
 		// ->delete_all();
 
 		// add origin url and additional urls/files to database
-		self::add_origin_and_additional_urls_to_db( $this->options->get( 'additional_urls' ) );
+        self::add_page_from_url($origin_url, "Origin URL");
+
+        $additional_urls = $this->options->get( 'additional_urls' );
+        $additional_urls = array_unique( Util::string_to_array( $additional_urls ) );
+        foreach ($additional_urls as $url) {
+            self::add_page_from_url($url, "Additional URL");
+        }
 		self::add_additional_files_to_db( $this->options->get( 'additional_files' ) );
 
 		return true;
 	}
 
-	/**
-	 * Ensure the Origin URL and user-specified Additional URLs are in the DB
-	 * @return void
-	 */
-	public static function add_origin_and_additional_urls_to_db( $additional_urls ) {
-		$origin_url = trailingslashit( Util::origin_url() );
-		Util::debug_log( 'Adding origin URL to queue: ' . $origin_url );
-		$static_page = Page::query()->find_or_initialize_by( 'url', $origin_url );
-		$static_page->set_status_message( __( "Origin URL", 'simply-static' ) );
-		// setting to 0 for "not found anywhere" since it's either the origin
-		// or something the user specified
-		$static_page->found_on_id = 0;
-		$static_page->save();
-
-		$urls = array_unique( Util::string_to_array( $additional_urls ) );
-		foreach ( $urls as $url ) {
-			if ( Util::is_local_url( $url ) ) {
-				Util::debug_log( 'Adding additional URL to queue: ' . $url );
-				$static_page = Page::query()->find_or_initialize_by( 'url', $url );
-				$static_page->set_status_message( __( "Additional URL", 'simply-static' ) );
-				$static_page->found_on_id = 0;
-				$static_page->save();
-			}
+    public static function add_page_from_url(string $url, string $status_message): void {
+		if ( Util::is_local_url( $url ) ) {
+			Util::debug_log( 'Adding additional URL to queue: ' . $url );
+			$static_page = Page::query()->find_or_initialize_by( 'url', $url );
+			$static_page->set_status_message( __( $status_message, 'simply-static' ) );
+		    // setting to 0 for "not found anywhere" since it's either the origin
+		    // or something the user specified
+			$static_page->found_on_id = 0;
+			$static_page->save();
 		}
-	}
+    }
 
 	/**
 	 * Convert Additional Files/Directories to URLs and add them to the database
